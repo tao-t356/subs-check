@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/beck-8/subs-check/check"
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/save/method"
-	"github.com/beck-8/subs-check/utils"
+	"github.com/tao-t356/subs-check/check"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/save/method"
+	"github.com/tao-t356/subs-check/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,7 +37,7 @@ func SaveConfig(results []check.Result) {
 	}
 
 	// ① 先写 history,此时 proxy["name"] 仍是原始值,history yaml 天然干净
-	if config.GlobalConfig.KeepDays > 0 {
+	if config.Current().KeepDays > 0 {
 		historyYamlData, err := marshalProxies(results)
 		if err != nil {
 			slog.Error(fmt.Sprintf("序列化历史快照失败: %v", err))
@@ -68,7 +68,7 @@ func SaveConfig(results []check.Result) {
 
 	// 更新 SubStore 并获取衍生文件(mihomo.yaml / base64.txt)
 	var mihomoData, base64Data []byte
-	if config.GlobalConfig.SubStorePort != "" {
+	if config.Current().SubStorePort != "" {
 		utils.UpdateSubStore(allYamlData)
 		mihomoData = fetchSubStoreData(
 			fmt.Sprintf("%s/api/file/%s", utils.BaseURL, utils.MihomoName),
@@ -85,12 +85,12 @@ func SaveConfig(results []check.Result) {
 	saveIfNotEmpty(method.SaveToLocal, base64Data, "base64.txt")
 
 	// 保存所有文件到远程(如果配置了远程保存方式)
-	if config.GlobalConfig.SaveMethod == "local" {
+	if config.Current().SaveMethod == "local" {
 		return
 	}
 	remoteSaver, err := newRemoteSaver()
 	if err != nil {
-		slog.Error(fmt.Sprintf("初始化远程保存方法(%s)失败: %v", config.GlobalConfig.SaveMethod, err))
+		slog.Error(fmt.Sprintf("初始化远程保存方法(%s)失败: %v", config.Current().SaveMethod, err))
 		return
 	}
 	saveIfNotEmpty(remoteSaver, allYamlData, "all.yaml")
@@ -137,13 +137,13 @@ func saveIfNotEmpty(saver SaveFunc, data []byte, filename string) {
 		return
 	}
 	if err := saver(data, filename); err != nil {
-		slog.Error(fmt.Sprintf("保存%s到%s失败: %v", filename, config.GlobalConfig.SaveMethod, err))
+		slog.Error(fmt.Sprintf("保存%s到%s失败: %v", filename, config.Current().SaveMethod, err))
 	}
 }
 
 // newRemoteSaver 根据配置创建远程保存方法
 func newRemoteSaver() (SaveFunc, error) {
-	switch config.GlobalConfig.SaveMethod {
+	switch config.Current().SaveMethod {
 	case "r2":
 		if err := method.ValiR2Config(); err != nil {
 			return nil, fmt.Errorf("R2配置不完整: %w", err)
@@ -165,6 +165,6 @@ func newRemoteSaver() (SaveFunc, error) {
 		}
 		return method.UploadToS3, nil
 	default:
-		return nil, fmt.Errorf("未知的保存方法: %s", config.GlobalConfig.SaveMethod)
+		return nil, fmt.Errorf("未知的保存方法: %s", config.Current().SaveMethod)
 	}
 }

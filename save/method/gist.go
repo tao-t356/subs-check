@@ -11,7 +11,7 @@ import (
 
 	"log/slog"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 var (
@@ -42,13 +42,13 @@ type GistUploader struct {
 
 // NewGistUploader 创建新的 Gist 上传器
 func NewGistUploader() *GistUploader {
-	if config.GlobalConfig.GithubAPIMirror != "" {
-		gistAPIURL = strings.TrimRight(config.GlobalConfig.GithubAPIMirror, "/") + "/gists"
+	if config.Current().GithubAPIMirror != "" {
+		gistAPIURL = strings.TrimRight(config.Current().GithubAPIMirror, "/") + "/gists"
 	}
 	return &GistUploader{
 		client:   &http.Client{Timeout: 30 * time.Second},
-		token:    config.GlobalConfig.GithubToken,
-		id:       config.GlobalConfig.GithubGistID,
+		token:    config.Current().GithubToken,
+		id:       config.Current().GithubGistID,
 		isPublic: false,
 	}
 }
@@ -61,10 +61,10 @@ func UploadToGist(yamlData []byte, filename string) error {
 
 // ValiGistConfig 验证Gist配置
 func ValiGistConfig() error {
-	if config.GlobalConfig.GithubToken == "" {
+	if config.Current().GithubToken == "" {
 		return fmt.Errorf("github token未配置")
 	}
-	if config.GlobalConfig.GithubGistID == "" {
+	if config.Current().GithubGistID == "" {
 		return fmt.Errorf("gist id未配置")
 	}
 	return nil

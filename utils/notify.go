@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 // NotifyRequest 定义发送通知的请求结构
@@ -29,7 +29,7 @@ func Notify(request NotifyRequest) error {
 	}
 
 	// 发送请求
-	resp, err := http.Post(config.GlobalConfig.AppriseApiServer, "application/json", bytes.NewBuffer(body))
+	resp, err := http.Post(config.Current().AppriseApiServer, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return fmt.Errorf("发送请求失败: %w", err)
 	}
@@ -45,23 +45,23 @@ func Notify(request NotifyRequest) error {
 }
 
 func SendNotify(length int) {
-	if config.GlobalConfig.AppriseApiServer == "" {
+	if config.Current().AppriseApiServer == "" {
 		return
-	} else if len(config.GlobalConfig.RecipientUrl) == 0 {
+	} else if len(config.Current().RecipientUrl) == 0 {
 		slog.Error("没有配置通知目标")
 		return
 	}
 
-	for _, url := range config.GlobalConfig.RecipientUrl {
+	for _, url := range config.Current().RecipientUrl {
 		request := NotifyRequest{
 			URLs: url,
 			Body: fmt.Sprintf("✅ 可用节点：%d\n🕒 %s",
 				length,
 				GetCurrentTime()),
-			Title: config.GlobalConfig.NotifyTitle,
+			Title: config.Current().NotifyTitle,
 		}
 		var err error
-		for i := 0; i < config.GlobalConfig.SubUrlsReTry; i++ {
+		for i := 0; i < config.Current().SubUrlsReTry; i++ {
 			err = Notify(request)
 			if err == nil {
 				slog.Info(fmt.Sprintf("%s 通知发送成功", strings.SplitN(url, "://", 2)[0]))

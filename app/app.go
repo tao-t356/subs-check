@@ -10,12 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/beck-8/subs-check/app/monitor"
-	"github.com/beck-8/subs-check/assets"
-	"github.com/beck-8/subs-check/check"
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/save"
-	"github.com/beck-8/subs-check/utils"
+	"github.com/tao-t356/subs-check/app/monitor"
+	"github.com/tao-t356/subs-check/assets"
+	"github.com/tao-t356/subs-check/check"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/save"
+	"github.com/tao-t356/subs-check/utils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/robfig/cron/v3"
 )
@@ -69,25 +69,25 @@ func (app *App) Initialize() error {
 	}
 
 	// 从配置文件中读取代理，设置代理
-	if config.GlobalConfig.Proxy != "" {
-		os.Setenv("HTTP_PROXY", config.GlobalConfig.Proxy)
-		os.Setenv("HTTPS_PROXY", config.GlobalConfig.Proxy)
+	if config.Current().Proxy != "" {
+		os.Setenv("HTTP_PROXY", config.Current().Proxy)
+		os.Setenv("HTTPS_PROXY", config.Current().Proxy)
 	}
 
 	app.interval = func() int {
-		if config.GlobalConfig.CheckInterval <= 0 {
+		if config.Current().CheckInterval <= 0 {
 			return 1
 		}
-		return config.GlobalConfig.CheckInterval
+		return config.Current().CheckInterval
 	}()
 
-	if config.GlobalConfig.ListenPort != "" {
+	if config.Current().ListenPort != "" {
 		if err := app.initHttpServer(); err != nil {
 			return fmt.Errorf("初始化HTTP服务器失败: %w", err)
 		}
 	}
 
-	if config.GlobalConfig.SubStorePort != "" {
+	if config.Current().SubStorePort != "" {
 		if runtime.GOOS == "linux" && runtime.GOARCH == "386" {
 			slog.Warn("node不支持Linux 32位系统，不启动sub-store服务")
 		}
@@ -120,7 +120,7 @@ func (app *App) Run() {
 	app.setTimer()
 
 	// 仅在cron表达式为空时，首次启动立即执行检测
-	if config.GlobalConfig.CronExpression != "" {
+	if config.Current().CronExpression != "" {
 		slog.Warn("使用cron表达式，首次启动不立即执行检测")
 	} else {
 		app.triggerCheck()
@@ -150,15 +150,15 @@ func (app *App) setTimer() {
 	}
 
 	// 检查是否设置了cron表达式
-	if config.GlobalConfig.CronExpression != "" {
-		slog.Info(fmt.Sprintf("使用cron表达式: %s", config.GlobalConfig.CronExpression))
+	if config.Current().CronExpression != "" {
+		slog.Info(fmt.Sprintf("使用cron表达式: %s", config.Current().CronExpression))
 		app.cron = cron.New()
-		_, err := app.cron.AddFunc(config.GlobalConfig.CronExpression, func() {
+		_, err := app.cron.AddFunc(config.Current().CronExpression, func() {
 			app.triggerCheck()
 		})
 		if err != nil {
 			slog.Error(fmt.Sprintf("cron表达式 '%s' 解析失败: %v，将使用检查间隔时间",
-				config.GlobalConfig.CronExpression, err))
+				config.Current().CronExpression, err))
 			// 使用间隔时间
 			app.useIntervalTimer()
 		} else {
@@ -231,10 +231,10 @@ func (app *App) triggerCheck() {
 
 // checkProxies 执行代理检测
 func (app *App) checkProxies() error {
-	slog.Info("开始准备检测代理", "进度展示", config.GlobalConfig.PrintProgress)
+	slog.Info("开始准备检测代理", "进度展示", config.Current().PrintProgress)
 
 	// 加载历史可用节点到待测队列
-	if config.GlobalConfig.KeepDays > 0 {
+	if config.Current().KeepDays > 0 {
 		if hp := save.LoadHistoryProxies(); len(hp) > 0 {
 			config.GlobalProxies = append(config.GlobalProxies, hp...)
 		}

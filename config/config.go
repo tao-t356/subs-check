@@ -1,6 +1,9 @@
 package config
 
-import _ "embed"
+import (
+	_ "embed"
+	"sync/atomic"
+)
 
 type Config struct {
 	PrintProgress        bool     `yaml:"print-progress"`
@@ -36,6 +39,7 @@ type Config struct {
 	SubUrlsReTry         int      `yaml:"sub-urls-retry"`
 	SubUrlsRetryInterval int      `yaml:"sub-urls-retry-interval"`
 	SubUrlsTimeout       int      `yaml:"sub-urls-timeout"`
+	InsecureSkipVerify   bool     `yaml:"insecure-skip-verify"`
 	SubUrlsConcurrent    int      `yaml:"sub-urls-concurrent"`
 	SubUrlsGetUA         string   `yaml:"sub-urls-get-ua"`
 	SubUrlsRemote        []string `yaml:"sub-urls-remote"`
@@ -61,6 +65,7 @@ type Config struct {
 	NodePrefix           string   `yaml:"node-prefix"`
 	NodeType             []string `yaml:"node-type"`
 	EnableWebUI          bool     `yaml:"enable-web-ui"`
+	EnablePprof          bool     `yaml:"enable-pprof"`
 	APIKey               string   `yaml:"api-key"`
 	GithubProxy          string   `yaml:"github-proxy"`
 	Proxy                string   `yaml:"proxy"`
@@ -80,7 +85,7 @@ type DNSConfig struct {
 	DefaultNameserver     []string `yaml:"default-nameserver"`
 }
 
-var GlobalConfig = &Config{
+var defaultConfig = Config{
 	// 新增配置，给未更改配置文件的用户一个默认值
 	ListenPort:         ":8199",
 	NotifyTitle:        "🔔 节点状态更新",
@@ -89,9 +94,64 @@ var GlobalConfig = &Config{
 	Platforms:          []string{"openai", "youtube", "netflix", "disney", "gemini", "iprisk"},
 	DownloadMB:         20,
 	AliveTestUrl:       "http://gstatic.com/generate_204",
-	SubUrlsGetUA:       "clash.meta (https://github.com/beck-8/subs-check)",
+	SubUrlsGetUA:       "clash.meta (https://github.com/tao-t356/subs-check)",
 	SubUrlsReTry:       3,
 	SubUrlsConcurrent:  20,
+}
+
+// GlobalConfig is kept for tests and backward-compatible internal helpers.
+// Runtime code should read configuration through Current(), and config reloads
+// should publish a fresh snapshot through Store().
+var GlobalConfig = cloneConfig(&defaultConfig)
+
+var currentConfig atomic.Pointer[Config]
+
+func init() {
+	currentConfig.Store(GlobalConfig)
+}
+
+// NewDefaultConfig returns an independent config initialized with built-in
+// defaults. YAML can be unmarshaled into the returned value without mutating the
+// active runtime snapshot.
+func NewDefaultConfig() *Config {
+	return cloneConfig(&defaultConfig)
+}
+
+// Store atomically publishes cfg as the active runtime configuration snapshot.
+func Store(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	snapshot := cloneConfig(cfg)
+	currentConfig.Store(snapshot)
+	// Keep the legacy pointer aligned for tests/direct package users. Runtime
+	// code avoids reading this pointer concurrently by using Current().
+	GlobalConfig = snapshot
+}
+
+// Current returns the latest published configuration snapshot.
+func Current() *Config {
+	if cfg := currentConfig.Load(); cfg != nil {
+		return cfg
+	}
+	return GlobalConfig
+}
+
+func cloneConfig(in *Config) *Config {
+	if in == nil {
+		return &Config{}
+	}
+	out := *in
+	out.SubUrlsRemote = append([]string(nil), in.SubUrlsRemote...)
+	out.SubUrls = append([]string(nil), in.SubUrls...)
+	out.RecipientUrl = append([]string(nil), in.RecipientUrl...)
+	out.Platforms = append([]string(nil), in.Platforms...)
+	out.NodeType = append([]string(nil), in.NodeType...)
+	out.Filter = append([]string(nil), in.Filter...)
+	out.DNS.Nameserver = append([]string(nil), in.DNS.Nameserver...)
+	out.DNS.ProxyServerNameserver = append([]string(nil), in.DNS.ProxyServerNameserver...)
+	out.DNS.DefaultNameserver = append([]string(nil), in.DNS.DefaultNameserver...)
+	return &out
 }
 
 //go:embed config.example.yaml

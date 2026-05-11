@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/beck-8/2clash/convert"
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/utils"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/utils"
 	"github.com/metacubex/mihomo/component/resolver"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -35,8 +35,8 @@ func GetProxies() ([]map[string]any, error) {
 	subUrls, localNum, remoteNum := resolveSubUrls()
 	slog.Info("订阅链接数量", "本地", localNum, "远程", remoteNum, "总计", len(subUrls))
 
-	if len(config.GlobalConfig.NodeType) > 0 {
-		slog.Info("只筛选用户设置的协议", "type", config.GlobalConfig.NodeType)
+	if len(config.Current().NodeType) > 0 {
+		slog.Info("只筛选用户设置的协议", "type", config.Current().NodeType)
 	}
 
 	var wg sync.WaitGroup
@@ -44,7 +44,7 @@ func GetProxies() ([]map[string]any, error) {
 	// concurrency: most users want dozens of cheap HTTP fetches in parallel
 	// even when the alive-check pool is tuned large. Falls back to 20 if
 	// the user hasn't set it (zero value).
-	subFetchConcurrency := config.GlobalConfig.SubUrlsConcurrent
+	subFetchConcurrency := config.Current().SubUrlsConcurrent
 	if subFetchConcurrency <= 0 {
 		subFetchConcurrency = 20
 	}
@@ -90,7 +90,7 @@ func GetProxies() ([]map[string]any, error) {
 				for _, proxy := range proxyList {
 					// 只测试指定协议
 					if t, ok := proxy["type"].(string); ok {
-						if len(config.GlobalConfig.NodeType) > 0 && !lo.Contains(config.GlobalConfig.NodeType, t) {
+						if len(config.Current().NodeType) > 0 && !lo.Contains(config.Current().NodeType, t) {
 							continue
 						}
 					}
@@ -122,7 +122,7 @@ func GetProxies() ([]map[string]any, error) {
 				if proxyMap, ok := proxy.(map[string]any); ok {
 					if t, ok := proxyMap["type"].(string); ok {
 						// 只测试指定协议
-						if len(config.GlobalConfig.NodeType) > 0 && !lo.Contains(config.GlobalConfig.NodeType, t) {
+						if len(config.Current().NodeType) > 0 && !lo.Contains(config.Current().NodeType, t) {
 							continue
 						}
 						// 虽然支持mihomo支持下划线，但是这里为了规范，还是改成横杠
@@ -168,17 +168,17 @@ func GetProxies() ([]map[string]any, error) {
 func resolveSubUrls() ([]subEntry, int, int) {
 	// 计数
 	var localNum, remoteNum int
-	localNum = len(config.GlobalConfig.SubUrls)
+	localNum = len(config.Current().SubUrls)
 
-	entries := make([]subEntry, 0, len(config.GlobalConfig.SubUrls))
+	entries := make([]subEntry, 0, len(config.Current().SubUrls))
 	// 本地配置
-	for _, u := range config.GlobalConfig.SubUrls {
+	for _, u := range config.Current().SubUrls {
 		entries = append(entries, subEntry{url: u, source: "本地配置"})
 	}
 
 	// 远程清单
-	if len(config.GlobalConfig.SubUrlsRemote) != 0 {
-		for _, d := range config.GlobalConfig.SubUrlsRemote {
+	if len(config.Current().SubUrlsRemote) != 0 {
+		for _, d := range config.Current().SubUrlsRemote {
 			if remote, err := fetchRemoteSubUrls(utils.WarpUrl(d)); err != nil {
 				slog.Warn("获取远程订阅清单失败，已忽略", "url", d, "err", err)
 			} else {
@@ -244,23 +244,24 @@ func fetchRemoteSubUrls(listURL string) ([]string, error) {
 
 // 订阅链接中获取数据
 func GetDateFromSubs(subUrl string) ([]byte, error) {
-	maxRetries := config.GlobalConfig.SubUrlsReTry
+	maxRetries := config.Current().SubUrlsReTry
 	// 重试间隔
-	retryInterval := config.GlobalConfig.SubUrlsRetryInterval
+	retryInterval := config.Current().SubUrlsRetryInterval
 	if retryInterval == 0 {
 		retryInterval = 1
 	}
 	// 超时时间
-	timeout := config.GlobalConfig.SubUrlsTimeout
+	timeout := config.Current().SubUrlsTimeout
 	if timeout == 0 {
 		timeout = 10
 	}
 	var lastErr error
 
+	cfg := config.Current()
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
 		},
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
@@ -270,7 +271,7 @@ func GetDateFromSubs(subUrl string) ([]byte, error) {
 	}
 	// Route DNS through the configured mihomo resolver so subscription domains aren't leaked to system DNS.
 	// Only when user enabled custom DNS — keeps default behavior unchanged for existing users.
-	if config.GlobalConfig.DNS.Enable {
+	if config.Current().DNS.Enable {
 		transport.DialContext = newMihomoDialer(time.Duration(timeout) * time.Second)
 	}
 	client := &http.Client{
@@ -289,10 +290,10 @@ func GetDateFromSubs(subUrl string) ([]byte, error) {
 			continue
 		}
 
-		if config.GlobalConfig.SubUrlsGetUA == "random" {
+		if config.Current().SubUrlsGetUA == "random" {
 			req.Header.Set("User-Agent", convert.RandUserAgent())
 		} else {
-			req.Header.Set("User-Agent", config.GlobalConfig.SubUrlsGetUA)
+			req.Header.Set("User-Agent", config.Current().SubUrlsGetUA)
 		}
 
 		resp, err := client.Do(req)

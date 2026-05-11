@@ -5,9 +5,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/utils"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/utils"
 )
 
 const (
@@ -30,8 +31,8 @@ func NewLocalSaver() (*LocalSaver, error) {
 	}
 
 	var outputPath string
-	if config.GlobalConfig.OutputDir != "" {
-		outputPath = config.GlobalConfig.OutputDir
+	if config.Current().OutputDir != "" {
+		outputPath = config.Current().OutputDir
 	} else {
 		outputPath = filepath.Join(basePath, outputDirName)
 	}
@@ -65,13 +66,50 @@ func (ls *LocalSaver) Save(yamlData []byte, filename string) error {
 	}
 
 	// 构建文件路径并保存
-	filepath := filepath.Join(ls.OutputPath, filename)
+	targetPath := filepath.Join(ls.OutputPath, filename)
+	tmpPath := targetPath + ".tmp"
 
-	if err := os.WriteFile(filepath, yamlData, fileMode); err != nil {
+	if err := writeFileAtomic(tmpPath, targetPath, yamlData); err != nil {
 		return fmt.Errorf("写入文件失败 [%s]: %w", filename, err)
 	}
-	slog.Info("保存本地成功", "filepath", filepath)
+	slog.Info("保存本地成功", "filepath", targetPath)
 
+	return nil
+}
+
+func writeFileAtomic(tmpPath, targetPath string, data []byte) error {
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+
+	if runtime.GOOS == "windows" {
+		// Windows Rename does not replace an existing file. Remove the old
+		// target after the temp file is fully flushed, then move the temp file
+		// into place to avoid serving partially-written output.
+		if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
+			os.Remove(tmpPath)
+			return err
+		}
+	}
+	if err := os.Rename(tmpPath, targetPath); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
 	return nil
 }
 

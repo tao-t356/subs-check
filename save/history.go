@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/save/method"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/save/method"
 	"gopkg.in/yaml.v3"
 )
 
@@ -43,7 +43,7 @@ func LoadHistoryProxies() []map[string]any {
 		return nil
 	}
 
-	cutoff := time.Now().AddDate(0, 0, -config.GlobalConfig.KeepDays)
+	cutoff := time.Now().AddDate(0, 0, -config.Current().KeepDays)
 	pattern := filepath.Join(dir, historyPrefix+"*.yaml")
 	files, err := filepath.Glob(pattern)
 	if err != nil {

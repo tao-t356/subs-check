@@ -8,7 +8,7 @@ import (
 
 	"log/slog"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 // 定义通用的 HTTP 客户端接口
@@ -34,7 +34,7 @@ func makeRequest(client httpClient, method, url string) ([]byte, error) {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.GlobalConfig.MihomoApiSecret))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.Current().MihomoApiSecret))
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -58,7 +58,7 @@ func makeRequest(client httpClient, method, url string) ([]byte, error) {
 }
 
 func UpdateSubs() {
-	if config.GlobalConfig.MihomoApiUrl == "" {
+	if config.Current().MihomoApiUrl == "" {
 		// slog.Warn("未配置 MihomoApiUrl，跳过更新")
 		return
 	}
@@ -85,7 +85,7 @@ func UpdateSubs() {
 }
 
 func getVersion(client httpClient) (string, error) {
-	url := fmt.Sprintf("%s/version", config.GlobalConfig.MihomoApiUrl)
+	url := fmt.Sprintf("%s/version", config.Current().MihomoApiUrl)
 	body, err := makeRequest(client, http.MethodGet, url)
 	if err != nil {
 		return "", err
@@ -99,7 +99,7 @@ func getVersion(client httpClient) (string, error) {
 }
 
 func getNeedUpdateNames(client httpClient) ([]string, error) {
-	url := fmt.Sprintf("%s/providers/proxies", config.GlobalConfig.MihomoApiUrl)
+	url := fmt.Sprintf("%s/providers/proxies", config.Current().MihomoApiUrl)
 	body, err := makeRequest(client, http.MethodGet, url)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func getNeedUpdateNames(client httpClient) ([]string, error) {
 
 func updateSubs(client httpClient, names []string) error {
 	for _, name := range names {
-		url := fmt.Sprintf("%s/providers/proxies/%s", config.GlobalConfig.MihomoApiUrl, name)
+		url := fmt.Sprintf("%s/providers/proxies/%s", config.Current().MihomoApiUrl, name)
 		if _, err := makeRequest(client, http.MethodPut, url); err != nil {
 			slog.Error(fmt.Sprintf("更新订阅%v失败: %v", name, err))
 		}

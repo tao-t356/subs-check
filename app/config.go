@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/utils"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/utils"
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
 )
@@ -38,9 +38,11 @@ func (app *App) loadConfig() error {
 		return fmt.Errorf("读取配置文件失败: %w", err)
 	}
 
-	if err := yaml.Unmarshal(yamlFile, config.GlobalConfig); err != nil {
+	next := config.NewDefaultConfig()
+	if err := yaml.Unmarshal(yamlFile, next); err != nil {
 		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
+	config.Store(next)
 
 	slog.Info("配置文件读取成功")
 	return nil
@@ -91,7 +93,8 @@ func (app *App) initConfigWatcher() error {
 					// 创建新的定时器，延迟100ms执行
 					debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
 						slog.Info("配置文件发生变化，正在重新加载")
-						oldCronExpr := config.GlobalConfig.CronExpression
+						oldCfg := config.Current()
+						oldCronExpr := oldCfg.CronExpression
 						oldInterval := app.interval
 
 						if err := app.loadConfig(); err != nil {
@@ -100,14 +103,15 @@ func (app *App) initConfigWatcher() error {
 						}
 
 						// 检查cron表达式或检测间隔是否变化
-						if oldCronExpr != config.GlobalConfig.CronExpression ||
-							oldInterval != config.GlobalConfig.CheckInterval {
+						newCfg := config.Current()
+						if oldCronExpr != newCfg.CronExpression ||
+							oldInterval != newCfg.CheckInterval {
 
 							app.interval = func() int {
-								if config.GlobalConfig.CheckInterval <= 0 {
+								if newCfg.CheckInterval <= 0 {
 									return 1
 								}
-								return config.GlobalConfig.CheckInterval
+								return newCfg.CheckInterval
 							}()
 							slog.Warn("检测设置发生变化，重新配置定时器")
 

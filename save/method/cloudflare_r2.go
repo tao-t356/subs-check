@@ -10,7 +10,7 @@ import (
 
 	"log/slog"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 const (
@@ -35,8 +35,8 @@ type R2Uploader struct {
 func NewR2Uploader() *R2Uploader {
 	return &R2Uploader{
 		client:    &http.Client{Timeout: 30 * time.Second},
-		workerURL: config.GlobalConfig.WorkerURL,
-		token:     config.GlobalConfig.WorkerToken,
+		workerURL: config.Current().WorkerURL,
+		token:     config.Current().WorkerToken,
 	}
 }
 
@@ -48,10 +48,10 @@ func UploadToR2Storage(yamlData []byte, filename string) error {
 
 // valiR2Config 验证R2配置
 func ValiR2Config() error {
-	if config.GlobalConfig.WorkerURL == "" {
+	if config.Current().WorkerURL == "" {
 		return fmt.Errorf("worker url未配置")
 	}
-	if config.GlobalConfig.WorkerToken == "" {
+	if config.Current().WorkerToken == "" {
 		return fmt.Errorf("worker token未配置")
 	}
 	return nil

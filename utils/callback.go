@@ -9,12 +9,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 // ExecuteCallback 执行回调脚本
 func ExecuteCallback(successCount int) {
-	callbackScript := config.GlobalConfig.CallbackScript
+	callbackScript := config.Current().CallbackScript
 	if callbackScript == "" {
 		return
 	}

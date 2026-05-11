@@ -5,18 +5,18 @@ import (
 	"log/slog"
 	"regexp"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 // CompileFilterPatterns compiles the configured filter regex list.
 // Invalid patterns are dropped with a warning; returns an empty slice
 // when filtering is disabled or all patterns failed to compile.
 func CompileFilterPatterns() []*regexp.Regexp {
-	if len(config.GlobalConfig.Filter) == 0 {
+	if len(config.Current().Filter) == 0 {
 		return nil
 	}
 	var patterns []*regexp.Regexp
-	for _, pattern := range config.GlobalConfig.Filter {
+	for _, pattern := range config.Current().Filter {
 		re, err := regexp.Compile(pattern)
 		if err != nil {
 			slog.Warn(fmt.Sprintf("过滤正则表达式编译失败，已跳过: %s, 错误: %v", pattern, err))
@@ -24,7 +24,7 @@ func CompileFilterPatterns() []*regexp.Regexp {
 		}
 		patterns = append(patterns, re)
 	}
-	if len(patterns) == 0 && len(config.GlobalConfig.Filter) > 0 {
+	if len(patterns) == 0 && len(config.Current().Filter) > 0 {
 		slog.Warn("所有过滤正则表达式编译失败，跳过过滤")
 	}
 	return patterns

@@ -9,7 +9,7 @@ import (
 
 	"log/slog"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 var (
@@ -29,9 +29,9 @@ type WebDAVUploader struct {
 func NewWebDAVUploader() *WebDAVUploader {
 	return &WebDAVUploader{
 		client:   &http.Client{Timeout: 30 * time.Second},
-		baseURL:  config.GlobalConfig.WebDAVURL,
-		username: config.GlobalConfig.WebDAVUsername,
-		password: config.GlobalConfig.WebDAVPassword,
+		baseURL:  config.Current().WebDAVURL,
+		username: config.Current().WebDAVUsername,
+		password: config.Current().WebDAVPassword,
 	}
 }
 
@@ -43,13 +43,13 @@ func UploadToWebDAV(yamlData []byte, filename string) error {
 
 // ValiWebDAVConfig 验证WebDAV配置
 func ValiWebDAVConfig() error {
-	if config.GlobalConfig.WebDAVURL == "" {
+	if config.Current().WebDAVURL == "" {
 		return fmt.Errorf("webdav URL未配置")
 	}
-	if config.GlobalConfig.WebDAVUsername == "" {
+	if config.Current().WebDAVUsername == "" {
 		return fmt.Errorf("webdav 用户名未配置")
 	}
-	if config.GlobalConfig.WebDAVPassword == "" {
+	if config.Current().WebDAVPassword == "" {
 		return fmt.Errorf("webdav 密码未配置")
 	}
 	return nil

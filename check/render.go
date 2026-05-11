@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/beck-8/subs-check/config"
-	proxyutils "github.com/beck-8/subs-check/proxy"
+	"github.com/tao-t356/subs-check/config"
+	proxyutils "github.com/tao-t356/subs-check/proxy"
 )
 
 // RenderName 根据 Result 的结构化字段构造展示名。
@@ -24,8 +24,8 @@ func RenderName(r Result, includeSpeed bool) string {
 	// 这样能确保上游订阅里已有的 |speed|media 尾缀不会透传进来再被叠加,
 	// 否则在 IP 查询失败(免费节点常见)的节点上会出现重复标签。
 	var base string
-	if config.GlobalConfig.RenameNode {
-		base = config.GlobalConfig.NodePrefix + proxyutils.Rename(r.Country)
+	if config.Current().RenameNode {
+		base = config.Current().NodePrefix + proxyutils.Rename(r.Country)
 	} else if r.Proxy != nil {
 		if n, ok := r.Proxy["name"].(string); ok {
 			base = strings.TrimSpace(n)
@@ -34,12 +34,12 @@ func RenderName(r Result, includeSpeed bool) string {
 
 	// 2. 速度标签(仅 includeSpeed 且有速度时追加,放在媒体标签之前以保持与旧版相同的展示顺序)
 	var tags []string
-	if includeSpeed && config.GlobalConfig.SpeedTestUrl != "" && r.Speed > 0 {
+	if includeSpeed && config.Current().SpeedTestUrl != "" && r.Speed > 0 {
 		tags = append(tags, formatSpeedTag(r.Speed))
 	}
 
 	// 3. 按 config.Platforms 顺序收集媒体标签
-	for _, plat := range config.GlobalConfig.Platforms {
+	for _, plat := range config.Current().Platforms {
 		if tag := mediaTagFor(plat, &r); tag != "" {
 			tags = append(tags, tag)
 		}

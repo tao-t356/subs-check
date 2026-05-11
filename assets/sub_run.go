@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/save/method"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/save/method"
 	"github.com/klauspost/compress/zstd"
 	"github.com/shirou/gopsutil/v4/process"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -97,8 +97,8 @@ func startSubStore() error {
 
 	// 检查MihomoOverwriteUrl是否包含本地IP，如果是则移除代理环境变量
 	cleanProxyEnv := false
-	if config.GlobalConfig.MihomoOverwriteUrl != "" {
-		parsedURL, err := url.Parse(config.GlobalConfig.MihomoOverwriteUrl)
+	if config.Current().MihomoOverwriteUrl != "" {
+		parsedURL, err := url.Parse(config.Current().MihomoOverwriteUrl)
 		if err == nil {
 			host := parsedURL.Hostname()
 			if isLocalIP(host) {
@@ -109,7 +109,7 @@ func startSubStore() error {
 	}
 
 	// ipv4/ipv6 都支持
-	hostPort := strings.Split(config.GlobalConfig.SubStorePort, ":")
+	hostPort := strings.Split(config.Current().SubStorePort, ":")
 	// host可以为空，port不能为空
 	if len(hostPort) == 2 && hostPort[1] != "" {
 		cmd.Env = append(cmd.Env,
@@ -119,7 +119,7 @@ func startSubStore() error {
 	} else if len(hostPort) == 1 {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_BACKEND_API_PORT=%s", hostPort[0])) // 设置端口
 	} else {
-		return fmt.Errorf("sub-store-port invalid port format: %s", config.GlobalConfig.SubStorePort)
+		return fmt.Errorf("sub-store-port invalid port format: %s", config.Current().SubStorePort)
 	}
 
 	// https://hub.docker.com/r/xream/sub-store
@@ -149,31 +149,31 @@ func startSubStore() error {
 		cmd.Env = append(cmd.Env, "SUB_STORE_BODY_JSON_LIMIT=30mb")
 	}
 	// 增加自定义访问路径
-	if config.GlobalConfig.SubStorePath != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_FRONTEND_BACKEND_PATH=%s", config.GlobalConfig.SubStorePath))
+	if config.Current().SubStorePath != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_FRONTEND_BACKEND_PATH=%s", config.Current().SubStorePath))
 		cmd.Env = append(cmd.Env, "SUB_STORE_BACKEND_MERGE=1")
 	}
 
 	// sub-store 环境变量: 后端上传文件至 gist
-	if config.GlobalConfig.SubStoreSyncCron != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_BACKEND_SYNC_CRON=%s", config.GlobalConfig.SubStoreSyncCron))
+	if config.Current().SubStoreSyncCron != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_BACKEND_SYNC_CRON=%s", config.Current().SubStoreSyncCron))
 	}
 
 	// sub-store 环境变量: 自动拉取订阅内容
-	if config.GlobalConfig.SubStoreProduceCron != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_PRODUCE_CRON=%s", config.GlobalConfig.SubStoreProduceCron))
+	if config.Current().SubStoreProduceCron != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_PRODUCE_CRON=%s", config.Current().SubStoreProduceCron))
 	}
 
 	// sub-store 环境变量: 当遇到错误时发送通知
-	if config.GlobalConfig.SubStorePushService != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_PUSH_SERVICE=%s", config.GlobalConfig.SubStorePushService))
+	if config.Current().SubStorePushService != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SUB_STORE_PUSH_SERVICE=%s", config.Current().SubStorePushService))
 	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("启动 sub-store 失败: %w", err)
 	}
 
-	slog.Info("Sub-store service started", "pid", cmd.Process.Pid, "port", config.GlobalConfig.SubStorePort, "log", logPath)
+	slog.Info("Sub-store service started", "pid", cmd.Process.Pid, "port", config.Current().SubStorePort, "log", logPath)
 
 	// 等待程序结束
 	return cmd.Wait()

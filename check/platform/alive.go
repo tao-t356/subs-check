@@ -3,11 +3,11 @@ package platform
 import (
 	"net/http"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 func CheckAlive(httpClient *http.Client) (bool, error) {
-	resp, err := httpClient.Get(config.GlobalConfig.AliveTestUrl)
+	resp, err := httpClient.Get(config.Current().AliveTestUrl)
 	if err != nil {
 		return false, err
 	}

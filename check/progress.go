@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 	"github.com/mattn/go-isatty"
 )
 
@@ -96,8 +96,8 @@ func (pc *ProxyChecker) showProgressLog(done chan bool) {
 // (2 without speed test, 3 with). Each line is prefixed by \x1b[2K (erase
 // line) so varying-width numbers don't leave stale chars.
 func (pc *ProxyChecker) renderFrame() int {
-	hasSpeed := config.GlobalConfig.SpeedTestUrl != ""
-	limit := config.GlobalConfig.SuccessLimit
+	hasSpeed := config.Current().SpeedTestUrl != ""
+	limit := config.Current().SuccessLimit
 
 	aliveTotal := ProxyCount.Load()
 	aliveDone := Progress.Load()
@@ -155,7 +155,7 @@ func formatStageLine(name string, done, total uint32, passLabel string, pass uin
 // formatPipelineOneLine collapses pipeline state into a single info line,
 // used by the non-tty log renderer.
 func (pc *ProxyChecker) formatPipelineOneLine() string {
-	hasSpeed := config.GlobalConfig.SpeedTestUrl != ""
+	hasSpeed := config.Current().SpeedTestUrl != ""
 	aliveTotal := ProxyCount.Load()
 	aliveDone := Progress.Load()
 	aliveOk := Available.Load()

@@ -8,23 +8,23 @@ import (
 	"mime"
 	"path/filepath"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // ValiS3Config checks if the MinIO configuration is complete.
 func ValiS3Config() error {
-	if config.GlobalConfig.S3Endpoint == "" {
+	if config.Current().S3Endpoint == "" {
 		return fmt.Errorf("S3Endpoint is not configured")
 	}
-	if config.GlobalConfig.S3AccessID == "" {
+	if config.Current().S3AccessID == "" {
 		return fmt.Errorf("S3AccessID is not configured")
 	}
-	if config.GlobalConfig.S3SecretKey == "" {
+	if config.Current().S3SecretKey == "" {
 		return fmt.Errorf("S3SecretKey is not configured")
 	}
-	if config.GlobalConfig.S3Bucket == "" {
+	if config.Current().S3Bucket == "" {
 		return fmt.Errorf("S3Bucket is not configured")
 	}
 	return nil
@@ -34,18 +34,18 @@ func ValiS3Config() error {
 // The 'filename' parameter will be used as the object name in the bucket.
 func UploadToS3(data []byte, filename string) error {
 	ctx := context.Background()
-	endpoint := config.GlobalConfig.S3Endpoint
-	accessKeyID := config.GlobalConfig.S3AccessID
-	secretAccessKey := config.GlobalConfig.S3SecretKey
-	useSSL := config.GlobalConfig.S3UseSSL // e.g., true for HTTPS, false for HTTP
-	bucketName := config.GlobalConfig.S3Bucket
+	endpoint := config.Current().S3Endpoint
+	accessKeyID := config.Current().S3AccessID
+	secretAccessKey := config.Current().S3SecretKey
+	useSSL := config.Current().S3UseSSL // e.g., true for HTTPS, false for HTTP
+	bucketName := config.Current().S3Bucket
 
 	// Initialize minio client object.
 	minioClient, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 		BucketLookup: func() minio.BucketLookupType {
-			switch config.GlobalConfig.S3BucketLookup {
+			switch config.Current().S3BucketLookup {
 			case "dns":
 				return minio.BucketLookupDNS
 			case "path":

@@ -9,7 +9,7 @@ import (
 
 	"log/slog"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 	"github.com/juju/ratelimit"
 	"github.com/metacubex/mihomo/common/convert"
 )
@@ -51,7 +51,7 @@ func CheckSpeed(httpClient *http.Client, bucket *ratelimit.Bucket, bytesCounter 
 	// 创建一个新的测速专用客户端，基于原有客户端的传输层
 	speedClient := &http.Client{
 		// 设置更长的超时时间用于测速
-		Timeout: time.Duration(config.GlobalConfig.DownloadTimeout) * time.Second,
+		Timeout: time.Duration(config.Current().DownloadTimeout) * time.Second,
 		// 保持原有的传输层配置
 		Transport: httpClient.Transport,
 	}
@@ -78,8 +78,8 @@ func CheckSpeed(httpClient *http.Client, bucket *ratelimit.Bucket, bytesCounter 
 
 	// 计算网络层的大小限制
 	var limitSize uint64
-	if config.GlobalConfig.DownloadMB > 0 {
-		limitSize = uint64(config.GlobalConfig.DownloadMB) * 1024 * 1024
+	if config.Current().DownloadMB > 0 {
+		limitSize = uint64(config.Current().DownloadMB) * 1024 * 1024
 	} else {
 		limitSize = 0 // 不限制
 	}

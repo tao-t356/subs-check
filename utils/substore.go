@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 )
 
 type sub struct {
@@ -67,16 +67,17 @@ var mihomoOverwriteUrl string
 var BaseURL string
 
 func UpdateSubStore(yamlData []byte) {
+	cfg := config.Current()
 	// 调试的时候等一等node启动
-	if os.Getenv("SUB_CHECK_SKIP") != "" && config.GlobalConfig.SubStorePort != "" {
+	if os.Getenv("SUB_CHECK_SKIP") != "" && cfg.SubStorePort != "" {
 		time.Sleep(time.Second * 1)
 	}
 	// 处理用户输入的格式
-	config.GlobalConfig.SubStorePort = formatPort(config.GlobalConfig.SubStorePort)
+	subStorePort := formatPort(cfg.SubStorePort)
 	// 设置基础URL
-	BaseURL = fmt.Sprintf("http://127.0.0.1%s", config.GlobalConfig.SubStorePort)
-	if config.GlobalConfig.SubStorePath != "" {
-		BaseURL = fmt.Sprintf("%s%s", BaseURL, config.GlobalConfig.SubStorePath)
+	BaseURL = fmt.Sprintf("http://127.0.0.1%s", subStorePort)
+	if cfg.SubStorePath != "" {
+		BaseURL = fmt.Sprintf("%s%s", BaseURL, cfg.SubStorePath)
 	}
 
 	if err := checkSub(); err != nil {
@@ -86,7 +87,7 @@ func UpdateSubStore(yamlData []byte) {
 			return
 		}
 	}
-	if config.GlobalConfig.MihomoOverwriteUrl == "" {
+	if cfg.MihomoOverwriteUrl == "" {
 		slog.Error("mihomo覆写订阅url未设置")
 		return
 	}
@@ -96,18 +97,18 @@ func UpdateSubStore(yamlData []byte) {
 			slog.Error(fmt.Sprintf("创建mihomo配置文件失败: %v", err))
 			return
 		}
-		mihomoOverwriteUrl = config.GlobalConfig.MihomoOverwriteUrl
+		mihomoOverwriteUrl = cfg.MihomoOverwriteUrl
 	}
 	if err := updateSub(yamlData); err != nil {
 		slog.Error(fmt.Sprintf("更新sub配置文件失败: %v", err))
 		return
 	}
-	if config.GlobalConfig.MihomoOverwriteUrl != mihomoOverwriteUrl {
+	if cfg.MihomoOverwriteUrl != mihomoOverwriteUrl {
 		if err := updatefile(); err != nil {
 			slog.Error(fmt.Sprintf("更新mihomo配置文件失败: %v", err))
 			return
 		}
-		mihomoOverwriteUrl = config.GlobalConfig.MihomoOverwriteUrl
+		mihomoOverwriteUrl = cfg.MihomoOverwriteUrl
 		slog.Debug("mihomo覆写订阅url已更新")
 	}
 	slog.Info("substore更新完成")
@@ -221,7 +222,7 @@ func createfile() error {
 		Process: []Operator{
 			{
 				Args: args{
-					Content: WarpUrl(config.GlobalConfig.MihomoOverwriteUrl),
+					Content: WarpUrl(config.Current().MihomoOverwriteUrl),
 					Mode:    "link",
 				},
 				Disabled: false,
@@ -255,7 +256,7 @@ func updatefile() error {
 		Process: []Operator{
 			{
 				Args: args{
-					Content: WarpUrl(config.GlobalConfig.MihomoOverwriteUrl),
+					Content: WarpUrl(config.Current().MihomoOverwriteUrl),
 					Mode:    "link",
 				},
 				Disabled: false,
@@ -304,7 +305,7 @@ func WarpUrl(url string) string {
 
 	// 如果url中以https://raw.githubusercontent.com开头，那么就使用github代理
 	if strings.HasPrefix(url, "https://raw.githubusercontent.com") {
-		return config.GlobalConfig.GithubProxy + url
+		return config.Current().GithubProxy + url
 	}
 	return url
 }

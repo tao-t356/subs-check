@@ -2,20 +2,23 @@ package app
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"io"
 	"log/slog"
 	"net/http"
+	stdpprof "net/http/pprof"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/beck-8/subs-check/check"
-	"github.com/beck-8/subs-check/config"
-	"github.com/beck-8/subs-check/save/method"
-	"github.com/gin-contrib/pprof"
+	"github.com/tao-t356/subs-check/check"
+	"github.com/tao-t356/subs-check/config"
+	"github.com/tao-t356/subs-check/save/method"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 )
@@ -49,27 +52,22 @@ func (app *App) initHttpServer() error {
 
 	router.Static("/sub/", saver.OutputPath)
 
-	// pprof 路由，空闲时不消耗性能
-	pprof.Register(router)
+	cfg := config.Current()
+	var apiKey string
+	if cfg.EnableWebUI || cfg.EnablePprof {
+		apiKey = app.resolveAPIKey(cfg.APIKey)
+	}
 
 	// 根据配置决定是否启用Web控制面板
-	if config.GlobalConfig.EnableWebUI {
-		if config.GlobalConfig.APIKey == "" {
-			if apiKey := os.Getenv("API_KEY"); apiKey != "" {
-				config.GlobalConfig.APIKey = apiKey
-			} else {
-				config.GlobalConfig.APIKey = GenerateSimpleKey()
-				slog.Warn("未设置api-key，已生成一个随机api-key", "api-key", config.GlobalConfig.APIKey)
-			}
-		}
-		slog.Info("启用Web控制面板", "path", "http://ip:port/admin", "api-key", config.GlobalConfig.APIKey)
+	if cfg.EnableWebUI {
+		slog.Info("启用Web控制面板", "path", "http://ip:port/admin", "api-key", apiKey)
 
 		// 设置模板加载 - 只有在启用Web控制面板时才加载
 		router.SetHTMLTemplate(template.Must(template.New("").ParseFS(configFS, "templates/*.html")))
 
 		// API路由
 		api := router.Group("/api")
-		api.Use(app.authMiddleware(config.GlobalConfig.APIKey)) // 添加认证中间件
+		api.Use(app.authMiddleware(apiKey)) // 添加认证中间件
 		{
 			// 配置相关API
 			api.GET("/config", app.getConfig)
@@ -96,16 +94,21 @@ func (app *App) initHttpServer() error {
 		slog.Info("Web控制面板已禁用")
 	}
 
+	if cfg.EnablePprof {
+		app.registerAuthenticatedPprof(router, apiKey)
+		slog.Warn("pprof 调试接口已启用，访问需要 X-API-Key", "path", "/debug/pprof")
+	}
+
 	// 启动HTTP服务器
 	go func() {
 		for {
-			if err := router.Run(config.GlobalConfig.ListenPort); err != nil {
+			if err := router.Run(cfg.ListenPort); err != nil {
 				slog.Error(fmt.Sprintf("HTTP服务器启动失败，正在重启中: %v", err))
 			}
 			time.Sleep(30 * time.Second)
 		}
 	}()
-	slog.Info("HTTP服务器启动", "port", config.GlobalConfig.ListenPort)
+	slog.Info("HTTP服务器启动", "port", cfg.ListenPort)
 	return nil
 }
 
@@ -118,6 +121,49 @@ func (app *App) authMiddleware(key string) gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+func (app *App) resolveAPIKey(configured string) string {
+	if configured != "" {
+		return configured
+	}
+	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
+		return apiKey
+	}
+	keyPath := filepath.Join(filepath.Dir(app.configPath), "api.key")
+	if data, err := os.ReadFile(keyPath); err == nil {
+		if apiKey := strings.TrimSpace(string(data)); apiKey != "" {
+			return apiKey
+		}
+	}
+	apiKey := GenerateAPIKey()
+	if err := os.WriteFile(keyPath, []byte(apiKey+"\n"), 0600); err != nil {
+		slog.Warn("未设置api-key，已生成强随机api-key；写入 api.key 失败，请手动保存", "api-key", apiKey, "err", err)
+	} else {
+		slog.Warn("未设置api-key，已生成强随机api-key并保存到 api.key", "api-key", apiKey, "path", keyPath)
+	}
+	return apiKey
+}
+
+func (app *App) registerAuthenticatedPprof(router *gin.Engine, apiKey string) {
+	debug := router.Group("/debug/pprof")
+	debug.Use(app.authMiddleware(apiKey))
+	debug.GET("/", gin.WrapF(stdpprof.Index))
+	debug.GET("/cmdline", gin.WrapF(stdpprof.Cmdline))
+	debug.GET("/profile", gin.WrapF(stdpprof.Profile))
+	debug.GET("/symbol", gin.WrapF(stdpprof.Symbol))
+	debug.POST("/symbol", gin.WrapF(stdpprof.Symbol))
+	debug.GET("/trace", gin.WrapF(stdpprof.Trace))
+	for _, name := range []string{
+		"allocs",
+		"block",
+		"goroutine",
+		"heap",
+		"mutex",
+		"threadcreate",
+	} {
+		debug.GET("/"+name, gin.WrapH(stdpprof.Handler(name)))
 	}
 }
 
@@ -188,7 +234,7 @@ func (app *App) getStatus(c *gin.Context) {
 		"phase":         check.Phase.Load(),
 		"phaseResults":  phaseResults,
 		"pipeline":      pipeline,
-		"hasSpeedTest":  config.GlobalConfig.SpeedTestUrl != "",
+		"hasSpeedTest":  config.Current().SpeedTestUrl != "",
 	})
 }
 
@@ -291,6 +337,14 @@ func ReadLastNLines(filePath string, n int) ([]string, error) {
 	return lines, nil
 }
 
+func GenerateAPIKey() string {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(fmt.Errorf("生成 api-key 失败: %w", err))
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:])
+}
+
 func GenerateSimpleKey() string {
-	return fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
+	return GenerateAPIKey()
 }

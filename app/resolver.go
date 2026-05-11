@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/beck-8/subs-check/config"
+	"github.com/tao-t356/subs-check/config"
 	"github.com/metacubex/mihomo/component/resolver"
 	"github.com/metacubex/mihomo/dns"
 )
@@ -27,7 +27,7 @@ var defaultBootstrapNameservers = []string{
 //	nameserver         → default-nameserver
 //	proxy-server-nameserver → nameserver
 func initResolver() error {
-	c := &config.GlobalConfig.DNS
+	c := &config.Current().DNS
 
 	// IPv6 toggle applies regardless of Enable — a user can flip on v6 without replacing the resolver.
 	resolver.DisableIPv6 = !c.IPv6

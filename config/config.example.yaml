@@ -114,6 +114,9 @@ output-dir: ""
 # 如果为false，则不启动Web控制界面，仅启动订阅服务相关接口
 # 访问地址：http://127.0.0.1:8199/admin
 enable-web-ui: true
+# 是否启用 pprof 调试接口；默认关闭。启用后接口位于 /debug/pprof，
+# 并复用 Web 控制面板的 X-API-Key 认证。
+enable-pprof: false
 # 填写Web控制面板的api-key，如果为空，则自动生成
 # 配置文件为空时，支持使用环境变量设置 API_KEY
 api-key: ""
@@ -202,11 +205,14 @@ s3-bucket-lookup: "auto"
 
 # 重试次数(获取订阅失败后重试次数)
 sub-urls-retry: 3
+# 拉取订阅时是否跳过 TLS 证书校验；默认 false 更安全。
+# 只有订阅源使用自签名/异常证书且你确认可信时才改为 true。
+insecure-skip-verify: false
 # 订阅下载并发数(控制同时拉取多少个订阅链接)
 sub-urls-concurrent: 20
 # 获取订阅时使用的UA；如果设置random将会使用随机UA获取订阅
 # sub-urls-get-ua: "random"
-sub-urls-get-ua: "clash.meta (https://github.com/beck-8/subs-check)"
+sub-urls-get-ua: "clash.meta (https://github.com/tao-t356/subs-check)"
 # Github Proxy，获取订阅使用，结尾要带的 /
 # github-proxy: "https://ghfast.top/"
 github-proxy: ""
